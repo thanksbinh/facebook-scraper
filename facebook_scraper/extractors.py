@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from collections import defaultdict
 
 from . import utils, exceptions
-from .constants import FB_BASE_URL, FB_MOBILE_BASE_URL, FB_W3_BASE_URL
+from .constants import FB_BASE_URL, FB_MOBILE_BASE_URL, FB_W3_BASE_URL, FB_MBASIC_BASE_URL
 from .fb_types import Options, Post, RawPost, RequestFunction, Response, URL
 
 
@@ -575,7 +575,7 @@ class PostExtractor:
         photo_links = []
         seen_urls = []
         for a in raw_photo_links:
-            partial_url = a.attrs["href"].split("?")[0]
+            partial_url = a.attrs["href"].split("?")[1]
             if partial_url not in seen_urls:
                 photo_links.append(a)
                 seen_urls.append(partial_url)
