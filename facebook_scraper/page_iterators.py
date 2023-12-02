@@ -143,7 +143,12 @@ class PageParser:
 
     def get_page(self) -> Page:
         # Select only elements that have the data-ft attribute
-        return self._get_page('article[data-ft*="top_level_post_id"]', 'article')
+        # it seems top_level_post_id is not always present, an update on the app is needed here but in case it's there
+        # we can use it
+        page = self._get_page('article[data-ft*="top_level_post_id"]', 'article')
+        if(len(page) == 0):
+            return self._get_page('article[data-ft]', 'article')
+        return page
 
     def get_raw_page(self) -> RawPage:
         return self.html
