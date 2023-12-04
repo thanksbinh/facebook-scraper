@@ -151,10 +151,11 @@ class PageParser:
         return PageClass(page, self.get_page_info())
 
     def get_page_info(self):
+        more_page_element = self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
         return {
             'user_id':
                 self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True).attrs.get('href').split('owner_id=')[
-                    1].split('&')[0]
+                    1].split('&')[0] if more_page_element else None
         }
 
     def get_raw_page(self) -> RawPage:
