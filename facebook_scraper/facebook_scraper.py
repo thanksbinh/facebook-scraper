@@ -1115,7 +1115,7 @@ class FacebookScraper:
             for i, page in zip(counter, iter_pages_fn()):
                 logger.debug("Extracting posts from page %s", i)
                 for post_element in page:
-                    post = extract_post_fn(post_element, options=options, request_fn=self.get)
+                    post = extract_post_fn(post_element, options=options, request_fn=self.get, extra_info=page.extra_info)
                     if remove_source:
                         post.pop('source', None)
                     yield post

@@ -29,9 +29,9 @@ PartialPost = Optional[Dict[str, Any]]
 
 
 def extract_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None
 ) -> Post:
-    return PostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return PostExtractor(raw_post, options, request_fn, full_post_html, extra_info).extract_post()
 
 
 def extract_group_post(
@@ -90,7 +90,7 @@ class PostExtractor:
     has_translation_regex = re.compile(r'<span.*>Rate Translation</span>')
     post_story_regex = re.compile(r'href="(\/story[^"]+)" aria')
 
-    def __init__(self, element, options, request_fn, full_post_html=None):
+    def __init__(self, element, options, request_fn, full_post_html=None, extra_info=None):
         self.element = element
         self.options = options
         self.request = request_fn
@@ -98,6 +98,7 @@ class PostExtractor:
         self._data_ft = None
         self._full_post_html = full_post_html
         self._live_data = {}
+        self.extra_info = extra_info
 
     # TODO: This is getting ugly, create a dataclass for Post
     def make_new_post(self) -> Post:
@@ -249,12 +250,18 @@ class PostExtractor:
 
             except Exception as ex:
                 log_warning("Exception while extracting comments: %r", ex)
+
+        if self.extra_info is not None:
+            post.update(self.extra_info)
         return post
 
     def extract_post_id(self) -> PartialPost:
+        # post id (top_level_post_id) found in data-fn is not usable anymore since data-fn is now practically empty;
+        # we can use an id on the like button to get that
         return {
             'post_id': self.live_data.get("ft_ent_identifier")
             or self.data_ft.get('top_level_post_id')
+            or self.element.find('[id^="like_"]', first=True).attrs.get('id').split('like_')[1]
         }
 
     def extract_username(self) -> PartialPost:

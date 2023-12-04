@@ -13,7 +13,7 @@ from .constants import FB_MOBILE_BASE_URL, FB_MBASIC_BASE_URL
 
 from .fb_types import URL, Page, RawPage, RequestFunction, Response
 from . import exceptions
-
+from .internal_classes import PageClass
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def iter_pages(account: str, request_fn: RequestFunction, **kwargs) -> Iterator[
 
 
 def iter_group_pages(
-    group: Union[str, int], request_fn: RequestFunction, **kwargs
+        group: Union[str, int], request_fn: RequestFunction, **kwargs
 ) -> Iterator[Page]:
     start_url = kwargs.pop("start_url", None)
 
@@ -70,7 +70,7 @@ def iter_photos(account: str, request_fn: RequestFunction, **kwargs) -> Iterator
 
 def generic_iter_pages(
     start_url, page_parser_cls, request_fn: RequestFunction, **kwargs
-) -> Iterator[Page]:
+) -> Iterator[PageClass]:
     next_url = start_url
 
     base_url = kwargs.get('base_url', FB_MOBILE_BASE_URL)
@@ -105,7 +105,7 @@ def generic_iter_pages(
         page = parser.get_page()
 
         # TODO: If page is actually an iterable calling len(page) might consume it
-        logger.debug("Got %s raw posts from page", len(page))
+        logger.debug("Got %s raw posts from page", len(page.raw_posts))
         yield page
 
         logger.debug("Looking for next page URL")
@@ -141,14 +141,21 @@ class PageParser:
 
         self._parse()
 
-    def get_page(self) -> Page:
+    def get_page(self) -> PageClass:
         # Select only elements that have the data-ft attribute
         # it seems top_level_post_id is not always present, an update on the app is needed here but in case it's there
         # we can use it
         page = self._get_page('article[data-ft*="top_level_post_id"]', 'article')
-        if(len(page) == 0):
-            return self._get_page('article[data-ft]', 'article')
-        return page
+        if (len(page) == 0):
+            page = self._get_page('article[data-ft]', 'article')
+        return PageClass(page, self.get_page_info())
+
+    def get_page_info(self):
+        return {
+            'user_id':
+                self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True).attrs.get('href').split('owner_id=')[
+                    1].split('&')[0]
+        }
 
     def get_raw_page(self) -> RawPage:
         return self.html
