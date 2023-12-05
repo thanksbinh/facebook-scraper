@@ -280,18 +280,33 @@ class PostExtractor:
 
         element = self.element
 
-        story_containers = element.find(".story_body_container")  
+        story_containers = element.find(".story_body_container")
+        # on the single post page of mbasic .story_body_container doesn't seem to exist which means no text will be extracted
+        if len(story_containers) == 0:
+            story_containers = element.find("[data-ft]")
+
+
 
         has_more = self.more_url_regex.search(element.html)
         if has_more and self.full_post_html:
             element = self.full_post_html.find('.story_body_container', first=True)
             if not element and self.full_post_html.find("div.msg", first=True):
+                more_button = self.full_post_html.find('a:contains("More")')
+                returned_text = {};
+                if len(more_button) > 0:
+                    logger.debug(
+                        f"found a 'more' button, will send the minimal text notice"
+                    )
+                    returned_text['is_truncated_text'] = "true"
+                    returned_text['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs('href'))
                 text = self.full_post_html.find("div.msg", first=True).text
-                return {"text": text, "post_text": text}
+                returned_text['text'] = text
+                returned_text['post_text'] = text
+                return returned_text
 
         
         texts = defaultdict(str)
-
+        nodes = []
         for container_index, container in enumerate(story_containers):
             
             has_translation = self.has_translation_regex.search(container.html)
@@ -331,6 +346,13 @@ class PostExtractor:
                         # This button is meant to display the hidden text that is already loaded
                         # Not to be confused with the 'More' that opens the article in a new page
                         if node.tag == 'p':
+                            more_button = node.find('a:contains("More")')
+                            if len(more_button) > 0:
+                                logger.debug(
+                                    f"found a 'more' button, will send the minimal text notice"
+                                )
+                                texts['is_truncated_text'] = "true"
+                                texts['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs('href'))
                             node = utils.make_html_element(
                                 html=node.html.replace('>… <', '><', 1).replace('>More<', '', 1)
                             )
@@ -339,6 +361,15 @@ class PostExtractor:
                             post_text.append(node.text)
                         else:
                             shared_text.append(node.text)
+
+                if('is_truncated_text' not in texts):
+                    more_button = content.find('a:contains("More")')
+                    if len(more_button) > 0:
+                        logger.debug(
+                            f"found a 'more' button, will send the minimal text notice"
+                        )
+                        texts['is_truncated_text'] = "true"
+                        texts['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs.get('href'))
 
                 text = paragraph_separator.join(itertools.chain(post_text, shared_text))
                 post_text = paragraph_separator.join(post_text)
