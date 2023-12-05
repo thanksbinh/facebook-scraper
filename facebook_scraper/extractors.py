@@ -35,25 +35,25 @@ def extract_post(
 
 
 def extract_group_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None
 ) -> Post:
     return GroupPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
 
 
 def extract_story_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None
 ) -> Post:
     return StoryExtractor(raw_post, options, request_fn, full_post_html).extract_post()
 
 
 def extract_photo_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html
+    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html, extra_info=None
 ) -> Post:
     return PhotoPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
 
 
 def extract_hashtag_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None
 ) -> Post:
     return HashtagPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
 
