@@ -40,12 +40,12 @@ facebook-scraper @ git+https://github.com/moda20/facebook-scraper.git@master
 
 ## Usage
 
-Send the unique **page name, profile name, or ID** as the first parameter and you're good to go:
+Send the unique **page name, profile name, or ID** as the first parameter and specify the base_url and start_url to use the mbasic page instead, and you're good to go:
 
 ```python
 >>> from facebook_scraper import get_posts
 
->>> for post in get_posts('nintendo', pages=1):
+>>> for post in get_posts('nintendo', base_url="https://mbasic.facebook.com", start_url="https://mbasic.facebook.com/nintendo?v=timeline", pages=1):
 ...     print(post['text'][:50])
 ...
 The final step on the road to the Super Smash Bros
