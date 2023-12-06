@@ -115,6 +115,7 @@ def generic_iter_pages(
             if posts_per_page:
                 next_page = next_page.replace("num_to_fetch=4", f"num_to_fetch={posts_per_page}")
             next_url = utils.urljoin(base_url, next_page)
+            next_url = next_url.replace("amp;", f"")
         else:
             logger.info("Page parser did not find next page URL")
             next_url = None
@@ -133,7 +134,10 @@ class PageParser:
     cursor_regex_4 = re.compile(
         r'href\\":\\"\\+(/profile\\+/timeline\\+/stream[^"]+)\"'
     )  # scroll/cursor based, other requests
-
+    # adding new regex for the cursor
+    cursor_regex_5 = re.compile(
+        r'href="(/profile/timeline/stream/\?cursor[^"]+)"'
+    )  # scroll/cursor based, first request
     def __init__(self, response: Response):
         self.response = response
         self.html = None
@@ -184,6 +188,9 @@ class PageParser:
             value = match.groups()[0]
             return re.sub(r'\\+/', '/', value)
 
+        match = self.cursor_regex_5.search(self.cursor_blob)
+        if match:
+            return match.groups()[0]
         return None
 
     def _parse(self):
