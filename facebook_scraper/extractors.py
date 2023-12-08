@@ -261,7 +261,7 @@ class PostExtractor:
         return {
             'post_id': self.live_data.get("ft_ent_identifier")
             or self.data_ft.get('top_level_post_id')
-            or self.element.find('[id^="like_"]', first=True).attrs.get('id').split('like_')[1]
+            or self.element.find('[id^="like_"]', first=True).attrs.get('id').split('like_')[1] if self.element.find('[id^="like_"]', first=True) else None
         }
 
     def extract_username(self) -> PartialPost:
@@ -608,7 +608,8 @@ class PostExtractor:
         raw_photo_links = self.element.find(
             "div.story_body_container>div a[href*='photo.php'], "
             "div.story_body_container>div a[href*='/photos/'], "
-            "div._5v64 a[href*='/photos/']"
+            "div._5v64 a[href*='/photos/'], "
+            "div[data-ft] a[href*='photo.php']"
         )
         photo_links = []
         seen_urls = []
