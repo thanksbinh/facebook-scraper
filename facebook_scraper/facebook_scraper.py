@@ -112,7 +112,8 @@ class FacebookScraper:
         )
         return self._generic_get_posts(extract_hashtag_post, iter_pages_fn, **kwargs)
 
-    def get_posts_by_url(self, post_urls, options={}, remove_source=True) -> Iterator[Post]:
+    def get_posts_by_url(self, post_urls, options={}, remove_source=True, **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         if self.session.cookies.get("noscript") == "1":
             options["noscript"] = True
         for post_url in post_urls:
@@ -186,6 +187,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 if not post.get("post_url"):
@@ -1052,7 +1054,7 @@ class FacebookScraper:
 
                 for post_element in page:
                     try:
-                        post = extract_post_fn(post_element, options=options, request_fn=self.get)
+                        post = extract_post_fn(post_element, options=options, request_fn=self.get, **kwargs)
 
                         if remove_source:
                             post.pop("source", None)
@@ -1116,7 +1118,7 @@ class FacebookScraper:
             for i, page in zip(counter, iter_pages_fn()):
                 logger.debug("Extracting posts from page %s", i)
                 for post_element in page:
-                    post = extract_post_fn(post_element, options=options, request_fn=self.get, extra_info=page.extra_info)
+                    post = extract_post_fn(post_element, options=options, request_fn=self.get, extra_info=page.extra_info, **kwargs)
                     if remove_source:
                         post.pop('source', None)
                     yield post
