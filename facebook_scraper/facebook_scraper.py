@@ -160,6 +160,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 elif url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "/groups/")):
@@ -169,6 +170,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 elif "/stories/" in url or "/story/" in url:
@@ -178,6 +180,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 else:
