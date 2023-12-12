@@ -101,6 +101,7 @@ class FacebookScraper:
         return extractor.extract_reactors(response)
 
     def get_photos(self, account: str, **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         iter_pages_fn = partial(iter_photos, account=account, request_fn=self.get, **kwargs)
         return self._generic_get_posts(extract_post, iter_pages_fn, **kwargs)
 
@@ -845,6 +846,7 @@ class FacebookScraper:
         return results
 
     def get_group_posts(self, group: Union[str, int], **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         self.set_user_agent(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8"
         )
