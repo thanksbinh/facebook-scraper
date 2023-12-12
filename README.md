@@ -159,6 +159,9 @@ for comment in comments:
          '\n'
          'https://www.nintendo.com/amiibo/line-up/',
  'time': datetime.datetime(2019, 4, 30, 5, 0, 1),
+ 'full_text':'Don’t let this diminutive version of the Hero of Time fool you, '
+         'Young Link is just as heroic as his fully grown version! Young Link '
+         'joins the Super Smash Bros. series of amiibo figures!', # !! This will only be present if the post_text and text is truncated
  'user_id': '119240841493711',
  'username': 'Nintendo',
  'video': None,
