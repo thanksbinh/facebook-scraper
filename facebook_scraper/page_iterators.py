@@ -251,6 +251,7 @@ class GroupPageParser(PageParser):
     """Class for parsing a single page of a group"""
 
     cursor_regex_3 = re.compile(r'href[=:]"(\/groups\/[^"]+bac=[^"]+)"')  # for Group requests
+    cursor_regex_3_basic_new = re.compile(r'href[=:]"(\/groups\/[^"]+bacr=[^"]+)"')  # for mbasic Group requests 2023
 
     def get_next_page(self) -> Optional[URL]:
         next_page = super().get_next_page()
@@ -258,12 +259,14 @@ class GroupPageParser(PageParser):
             return next_page
 
         assert self.cursor_blob is not None
-
+        print("using extra page processor")
         match = self.cursor_regex_3.search(self.cursor_blob)
         if match:
             value = match.groups()[0]
             return value.encode('utf-8').decode('unicode_escape').replace('\\/', '/')
-
+        else:
+            match = self.cursor_regex_3_basic_new.search(self.cursor_blob)
+            return match.groups()[0].encode('utf-8').decode('unicode_escape').replace('\\/', '/') if match else None
         return None
 
     def _parse(self):
