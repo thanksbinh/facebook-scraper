@@ -164,7 +164,7 @@ class FacebookScraper:
                             **kwargs
                         )
                     )
-                elif url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "/groups/")):
+                elif url.startswith(utils.urljoin(FB_MBASIC_BASE_URL, "/groups/")):
                     post.update(
                         extract_group_post(
                             elem,
