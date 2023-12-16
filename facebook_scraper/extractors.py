@@ -556,6 +556,10 @@ class PostExtractor:
                 self.element.find(".like_def", first=True)
                 and utils.parse_int(self.element.find(".like_def", first=True).text)
             )
+            or (
+                self.element.find('[id^="like_"]', first=True)
+                and utils.parse_int(self.element.find('[id^="like_"]', first=True).text)
+            )
             or 0
         )
 
