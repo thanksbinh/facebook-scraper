@@ -101,6 +101,7 @@ class FacebookScraper:
         return extractor.extract_reactors(response)
 
     def get_photos(self, account: str, **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         iter_pages_fn = partial(iter_photos, account=account, request_fn=self.get, **kwargs)
         return self._generic_get_posts(extract_post, iter_pages_fn, **kwargs)
 
@@ -112,17 +113,18 @@ class FacebookScraper:
         )
         return self._generic_get_posts(extract_hashtag_post, iter_pages_fn, **kwargs)
 
-    def get_posts_by_url(self, post_urls, options={}, remove_source=True) -> Iterator[Post]:
+    def get_posts_by_url(self, post_urls, options={}, remove_source=True, **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         if self.session.cookies.get("noscript") == "1":
             options["noscript"] = True
         for post_url in post_urls:
             url = str(post_url)
             if url.startswith(FB_BASE_URL):
-                url = url.replace(FB_BASE_URL, FB_MOBILE_BASE_URL)
+                url = url.replace(FB_BASE_URL, FB_MBASIC_BASE_URL)
             if url.startswith(FB_W3_BASE_URL):
-                url = url.replace(FB_W3_BASE_URL, FB_MOBILE_BASE_URL)
+                url = url.replace(FB_W3_BASE_URL, FB_MBASIC_BASE_URL)
             if not url.startswith(FB_MOBILE_BASE_URL):
-                url = utils.urljoin(FB_MOBILE_BASE_URL, url)
+                url = utils.urljoin(FB_MBASIC_BASE_URL, url)
 
             post = {"original_request_url": post_url, "post_url": url}
             logger.debug(f"Requesting page from: {url}")
@@ -132,7 +134,8 @@ class FacebookScraper:
             if "/stories/" in url or "/story/" in url:
                 elem = response.html.find("#story_viewer_content", first=True)
             else:
-                elem = response.html.find('[data-ft*="top_level_post_id"]', first=True)
+                #top_level_post_id is not used anymore
+                elem = response.html.find('[data-ft]', first=True)
                 if not elem:
                     elem = response.html.find('div.async_like', first=True)
                 if response.html.find("div.msg", first=True):
@@ -158,15 +161,17 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
-                elif url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "/groups/")):
+                elif url.startswith(utils.urljoin(FB_MBASIC_BASE_URL, "/groups/")):
                     post.update(
                         extract_group_post(
                             elem,
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 elif "/stories/" in url or "/story/" in url:
@@ -176,6 +181,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 else:
@@ -185,6 +191,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
+                            **kwargs
                         )
                     )
                 if not post.get("post_url"):
@@ -839,6 +846,7 @@ class FacebookScraper:
         return results
 
     def get_group_posts(self, group: Union[str, int], **kwargs) -> Iterator[Post]:
+        kwargs["scraper"] = self
         self.set_user_agent(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8"
         )
@@ -1051,7 +1059,7 @@ class FacebookScraper:
 
                 for post_element in page:
                     try:
-                        post = extract_post_fn(post_element, options=options, request_fn=self.get)
+                        post = extract_post_fn(post_element, options=options, request_fn=self.get, **kwargs)
 
                         if remove_source:
                             post.pop("source", None)
@@ -1115,7 +1123,7 @@ class FacebookScraper:
             for i, page in zip(counter, iter_pages_fn()):
                 logger.debug("Extracting posts from page %s", i)
                 for post_element in page:
-                    post = extract_post_fn(post_element, options=options, request_fn=self.get)
+                    post = extract_post_fn(post_element, options=options, request_fn=self.get, extra_info=page.extra_info, **kwargs)
                     if remove_source:
                         post.pop('source', None)
                     yield post

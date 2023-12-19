@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from collections import defaultdict
 
 from . import utils, exceptions
-from .constants import FB_BASE_URL, FB_MOBILE_BASE_URL, FB_W3_BASE_URL
+from .constants import FB_BASE_URL, FB_MOBILE_BASE_URL, FB_W3_BASE_URL, FB_MBASIC_BASE_URL
 from .fb_types import Options, Post, RawPost, RequestFunction, Response, URL
 
 
@@ -29,33 +29,36 @@ PartialPost = Optional[Dict[str, Any]]
 
 
 def extract_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+        raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None, **kwargs
 ) -> Post:
-    return PostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return PostExtractor(raw_post, options, request_fn, full_post_html, extra_info, **kwargs).extract_post()
 
 
 def extract_group_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+        raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None,
+        **kwargs
 ) -> Post:
-    return GroupPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return GroupPostExtractor(raw_post, options, request_fn, full_post_html, **kwargs).extract_post()
 
 
 def extract_story_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+        raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None,
+        **kwargs
 ) -> Post:
-    return StoryExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return StoryExtractor(raw_post, options, request_fn, full_post_html, **kwargs).extract_post()
 
 
 def extract_photo_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html
+        raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html, extra_info=None, **kwargs
 ) -> Post:
-    return PhotoPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return PhotoPostExtractor(raw_post, options, request_fn, full_post_html, **kwargs).extract_post()
 
 
 def extract_hashtag_post(
-    raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None
+        raw_post: RawPost, options: Options, request_fn: RequestFunction, full_post_html=None, extra_info=None,
+        **kwargs
 ) -> Post:
-    return HashtagPostExtractor(raw_post, options, request_fn, full_post_html).extract_post()
+    return HashtagPostExtractor(raw_post, options, request_fn, full_post_html, **kwargs).extract_post()
 
 
 class PostExtractor:
@@ -90,7 +93,10 @@ class PostExtractor:
     has_translation_regex = re.compile(r'<span.*>Rate Translation</span>')
     post_story_regex = re.compile(r'href="(\/story[^"]+)" aria')
 
-    def __init__(self, element, options, request_fn, full_post_html=None):
+    # selectors
+    post_more_button_selector = 'a:contains("More")[href^="/story.php"]'
+
+    def __init__(self, element, options, request_fn, full_post_html=None, extra_info=None, **kwargs):
         self.element = element
         self.options = options
         self.request = request_fn
@@ -98,6 +104,8 @@ class PostExtractor:
         self._data_ft = None
         self._full_post_html = full_post_html
         self._live_data = {}
+        self.extra_info = extra_info
+        self.scraper = kwargs['scraper']
 
     # TODO: This is getting ugly, create a dataclass for Post
     def make_new_post(self) -> Post:
@@ -249,12 +257,19 @@ class PostExtractor:
 
             except Exception as ex:
                 log_warning("Exception while extracting comments: %r", ex)
+
+        if self.extra_info is not None:
+            post.update(self.extra_info)
         return post
 
     def extract_post_id(self) -> PartialPost:
+        # post id (top_level_post_id) found in data-fn is not usable anymore since data-fn is now practically empty;
+        # we can use an id on the like button to get that
         return {
             'post_id': self.live_data.get("ft_ent_identifier")
-            or self.data_ft.get('top_level_post_id')
+                       or self.data_ft.get('top_level_post_id')
+                       or self.element.find('[id^="like_"]', first=True).attrs.get('id').split('like_')[
+                           1] if self.element.find('[id^="like_"]', first=True) else None
         }
 
     def extract_username(self) -> PartialPost:
@@ -273,20 +288,34 @@ class PostExtractor:
 
         element = self.element
 
-        story_containers = element.find(".story_body_container")  
+        story_containers = element.find(".story_body_container")
+        # on the single post page of mbasic .story_body_container doesn't seem to exist which means no text will be extracted
+        if len(story_containers) == 0:
+            story_containers = [element.find("[data-ft]", first=True)]
+
+
 
         has_more = self.more_url_regex.search(element.html)
         if has_more and self.full_post_html:
             element = self.full_post_html.find('.story_body_container', first=True)
             if not element and self.full_post_html.find("div.msg", first=True):
+                more_button = self.full_post_html.find(self.post_more_button_selector)
+                returned_text = {};
+                if len(more_button) > 0:
+                    logger.debug(
+                        f"found a 'more' button, will send the minimal text notice"
+                    )
+                    returned_text['is_truncated_text'] = "true"
+                    returned_text['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs('href'))
                 text = self.full_post_html.find("div.msg", first=True).text
-                return {"text": text, "post_text": text}
+                returned_text['text'] = text
+                returned_text['post_text'] = text
+                return returned_text
 
-        
         texts = defaultdict(str)
-
+        nodes = []
         for container_index, container in enumerate(story_containers):
-            
+
             has_translation = self.has_translation_regex.search(container.html)
             if has_translation:
                 original = container.find('div[style="display:none"]', first=True)
@@ -300,17 +329,17 @@ class PostExtractor:
             # Separation between paragraphs
             paragraph_separator = '\n\n'
 
-            for version, content in content_versions: 
+            for version, content in content_versions:
                 post_text = []
                 shared_text = []
-                nodes = content.find('p, header, span[role=presentation]')
+                nodes = content.find('p, header, span[role=presentation], div[data-ft]')
 
                 if version == "hidden_original":
                     if container_index == 0:
                         post_text.append(content.text)
                     else:
                         shared_text.append(content.text)
-                
+
                 elif nodes:
                     ended = False
                     index_non_header = next(
@@ -324,6 +353,13 @@ class PostExtractor:
                         # This button is meant to display the hidden text that is already loaded
                         # Not to be confused with the 'More' that opens the article in a new page
                         if node.tag == 'p':
+                            more_button = node.find(self.post_more_button_selector)
+                            if len(more_button) > 0:
+                                logger.debug(
+                                    f"found a 'more' button, will send the minimal text notice"
+                                )
+                                texts['is_truncated_text'] = "true"
+                                texts['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs('href'))
                             node = utils.make_html_element(
                                 html=node.html.replace('>… <', '><', 1).replace('>More<', '', 1)
                             )
@@ -333,10 +369,24 @@ class PostExtractor:
                         else:
                             shared_text.append(node.text)
 
+                if ('is_truncated_text' not in texts):
+                    more_button = content.find(self.post_more_button_selector)
+                    if len(more_button) > 0:
+                        logger.debug(
+                            f"found a 'more' button, will send the minimal text notice"
+                        )
+                        texts['is_truncated_text'] = "true"
+                        texts['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs.get('href'))
+                        logger.debug(f"getting the text from the full page post : {texts['full_post_url']}")
+                        post_urls = [texts['full_post_url']]
+                        post = next(self.scraper.get_posts_by_url(post_urls=post_urls))
+                        logger.debug(f"got the text from the full page post")
+                        texts['full_text'] = post['text']
+
                 text = paragraph_separator.join(itertools.chain(post_text, shared_text))
                 post_text = paragraph_separator.join(post_text)
                 shared_text = paragraph_separator.join(shared_text)
-                
+
                 if version in ["original", "hidden_original"]:
                     texts["text"] += text
                     texts["post_text"] += post_text
@@ -345,7 +395,7 @@ class PostExtractor:
                     texts["translated_text"] += text
                     texts["translated_post_text"] += post_text
                     texts["translated_shared_text"] += shared_text
-            
+
         if texts:
             if texts["translated_text"]:
                 texts["original_text"] = texts["text"]
@@ -357,9 +407,6 @@ class PostExtractor:
         elif len(nodes) == 1:
             text = nodes[0].text
             return {'text': text, 'post_text': text}
-
-
-                
 
         return None
 
@@ -509,6 +556,10 @@ class PostExtractor:
                 self.element.find(".like_def", first=True)
                 and utils.parse_int(self.element.find(".like_def", first=True).text)
             )
+            or (
+                self.element.find('[id^="like_"]', first=True)
+                and utils.parse_int(self.element.find('[id^="like_"]', first=True).text)
+            )
             or 0
         )
 
@@ -570,12 +621,13 @@ class PostExtractor:
         raw_photo_links = self.element.find(
             "div.story_body_container>div a[href*='photo.php'], "
             "div.story_body_container>div a[href*='/photos/'], "
-            "div._5v64 a[href*='/photos/']"
+            "div._5v64 a[href*='/photos/'], "
+            "div[data-ft] a[href*='photo.php']"
         )
         photo_links = []
         seen_urls = []
         for a in raw_photo_links:
-            partial_url = a.attrs["href"].split("?")[0]
+            partial_url = a.attrs["href"].split("?")[1]
             if partial_url not in seen_urls:
                 photo_links.append(a)
                 seen_urls.append(partial_url)
@@ -1072,7 +1124,7 @@ class PostExtractor:
             first=True,
         )
         comment_body_elem = comment.find(
-            '[data-sigil="comment-body"],div._14ye,div.bl', first=True
+            'div:nth-child(1) > div:nth-child(1) > div', first=True
         )
         if not comment_body_elem:
             comment_body_elem = comment.find('div>div>div', first=True)
@@ -1120,7 +1172,7 @@ class PostExtractor:
                 if comment_reactors_opt != "generator":
                     reactions["reactors"] = utils.safe_consume(reactions.get("reactors", []))
         else:
-            reactions_count = comment.find('span._14va', first=True)
+            reactions_count = comment.find('div span[id^="like_"] a[aria-label]', first=True)
             if reactions_count and len(reactions_count.text) > 0:
                 reactions_count = reactions_count.text
             else:
@@ -1212,7 +1264,7 @@ class PostExtractor:
                 for reply in comment.find("div[data-sigil='comment inline-reply']")
             ]
             replies_url = comment.find(
-                "div.async_elem[data-sigil='replies-see-more'] a[href],div[id*='comment_replies_more'] a[href]",
+                "div.async_elem[data-sigil='replies-see-more'] a[href], div[id*='comment_replies_more'] a[href]",
                 first=True,
             )
             if replies_url:
@@ -1238,7 +1290,7 @@ class PostExtractor:
         if not elem:
             logger.error("No comments area found")
             return
-        comments_selector = 'div[data-sigil="comment"]'
+        comments_selector = 'div div:nth-child(5) div:not([id^="see_next"])'
         if self.options.get("noscript"):
             comments_selector = f"{comments_area_selector}>div>div:not(id)>div"
         comments = list(elem.find(comments_selector))
@@ -1388,9 +1440,10 @@ class PostExtractor:
             url = self.post.get('post_id')
             logger.debug(f"Fetching {url}")
             try:
+                url = self.post.get('post_url').replace(FB_BASE_URL, FB_MBASIC_BASE_URL)
                 response = self.request(url)
             except exceptions.NotFound as e:
-                url = self.post.get('post_url').replace(FB_BASE_URL, FB_MOBILE_BASE_URL)
+                url = self.post.get('post_url').replace(FB_BASE_URL, FB_MBASIC_BASE_URL)
                 logger.debug(f"Fetching {url}")
                 response = self.request(url)
             if response.text.startswith("for (;;)"):
@@ -1462,7 +1515,7 @@ class PhotoPostExtractor(PostExtractor):
 
 
 class HashtagPostExtractor(PostExtractor):
-    def __init__(self, element, options, request_fn, full_post_html=None):
+    def __init__(self, element, options, request_fn, full_post_html=None, **kwargs):
         post_id = self.extract_hashtag_post_id(element)
         if post_id:
             response = request_fn(post_id)

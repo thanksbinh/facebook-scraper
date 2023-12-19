@@ -14,26 +14,38 @@ Scrape Facebook public pages without an API key. Inspired by [twitter-scraper](h
 
 ## Install
 
-To install the latest release from PyPI:
+To install the latest release from PyPI (original version):
 
 ```sh
 pip install facebook-scraper
 ```
 
-Or, to install the latest master branch:
+Or, to install this latest master branch:
 
 ```sh
-pip install git+https://github.com/kevinzg/facebook-scraper.git
+pip install git+https://github.com/moda20/facebook-scraper.git@master
+```
+
+Or, to force update the branch after an update : 
+
+```sh
+pip install --force-reinstall --no-deps git+https://github.com/moda20/facebook-scraper.git@master
+```
+
+And to add it to your requirements.txt manually : 
+
+```
+facebook-scraper @ git+https://github.com/moda20/facebook-scraper.git@master
 ```
 
 ## Usage
 
-Send the unique **page name, profile name, or ID** as the first parameter and you're good to go:
+Send the unique **page name, profile name, or ID** as the first parameter and specify the base_url and start_url to use the mbasic page instead, and you're good to go:
 
 ```python
 >>> from facebook_scraper import get_posts
 
->>> for post in get_posts('nintendo', pages=1):
+>>> for post in get_posts('NintendoAmerica', base_url="https://mbasic.facebook.com", start_url="https://mbasic.facebook.com/NintendoAmerica?v=timeline", pages=1):
 ...     print(post['text'][:50])
 ...
 The final step on the road to the Super Smash Bros
@@ -82,9 +94,9 @@ Download comments for a public Facebook post.
 import facebook_scraper as fs
 
 # get POST_ID from the URL of the post which can have the following structure:
-# https://www.facebook.com/USER/posts/POST_ID
-# https://www.facebook.com/groups/GROUP_ID/posts/POST_ID
-POST_ID = "pfbid02NsuAiBU9o1ouwBrw1vYAQ7khcVXvz8F8zMvkVat9UJ6uiwdgojgddQRLpXcVBqYbl"
+# https://mbasic.facebook.com/USER/posts/POST_ID
+# https://mbasic.facebook.com/groups/GROUP_ID/posts/POST_ID
+POST_ID = "https://mbasic.facebook.com/<pageId>/posts/<postId>"
 
 # number of comments to download -- set this to True to download all comments
 MAX_COMMENTS = 100
@@ -147,6 +159,9 @@ for comment in comments:
          '\n'
          'https://www.nintendo.com/amiibo/line-up/',
  'time': datetime.datetime(2019, 4, 30, 5, 0, 1),
+ 'full_text':'Don’t let this diminutive version of the Hero of Time fool you, '
+         'Young Link is just as heroic as his fully grown version! Young Link '
+         'joins the Super Smash Bros. series of amiibo figures!', # !! This will only be present if the post_text and text is truncated
  'user_id': '119240841493711',
  'username': 'Nintendo',
  'video': None,

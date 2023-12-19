@@ -13,7 +13,7 @@ from .constants import FB_MOBILE_BASE_URL, FB_MBASIC_BASE_URL
 
 from .fb_types import URL, Page, RawPage, RequestFunction, Response
 from . import exceptions
-
+from .internal_classes import PageClass
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,12 @@ def iter_hashtag_pages(hashtag: str, request_fn: RequestFunction, **kwargs) -> I
 def iter_pages(account: str, request_fn: RequestFunction, **kwargs) -> Iterator[Page]:
     start_url = kwargs.pop("start_url", None)
     if not start_url:
-        start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'/{account}/')
+        start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'/{account}', )
     return generic_iter_pages(start_url, PageParser, request_fn, **kwargs)
 
 
 def iter_group_pages(
-    group: Union[str, int], request_fn: RequestFunction, **kwargs
+        group: Union[str, int], request_fn: RequestFunction, **kwargs
 ) -> Iterator[Page]:
     start_url = kwargs.pop("start_url", None)
 
@@ -70,7 +70,7 @@ def iter_photos(account: str, request_fn: RequestFunction, **kwargs) -> Iterator
 
 def generic_iter_pages(
     start_url, page_parser_cls, request_fn: RequestFunction, **kwargs
-) -> Iterator[Page]:
+) -> Iterator[PageClass]:
     next_url = start_url
 
     base_url = kwargs.get('base_url', FB_MOBILE_BASE_URL)
@@ -105,7 +105,7 @@ def generic_iter_pages(
         page = parser.get_page()
 
         # TODO: If page is actually an iterable calling len(page) might consume it
-        logger.debug("Got %s raw posts from page", len(page))
+        logger.debug("Got %s raw posts from page", len(page.raw_posts))
         yield page
 
         logger.debug("Looking for next page URL")
@@ -115,6 +115,7 @@ def generic_iter_pages(
             if posts_per_page:
                 next_page = next_page.replace("num_to_fetch=4", f"num_to_fetch={posts_per_page}")
             next_url = utils.urljoin(base_url, next_page)
+            next_url = next_url.replace("amp;", f"")
         else:
             logger.info("Page parser did not find next page URL")
             next_url = None
@@ -133,7 +134,10 @@ class PageParser:
     cursor_regex_4 = re.compile(
         r'href\\":\\"\\+(/profile\\+/timeline\\+/stream[^"]+)\"'
     )  # scroll/cursor based, other requests
-
+    # adding new regex for the cursor
+    cursor_regex_5 = re.compile(
+        r'href="(/profile/timeline/stream/\?cursor[^"]+)"'
+    )  # scroll/cursor based, first request
     def __init__(self, response: Response):
         self.response = response
         self.html = None
@@ -141,9 +145,22 @@ class PageParser:
 
         self._parse()
 
-    def get_page(self) -> Page:
+    def get_page(self) -> PageClass:
         # Select only elements that have the data-ft attribute
-        return self._get_page('article[data-ft*="top_level_post_id"]', 'article')
+        # it seems top_level_post_id is not always present, an update on the app is needed here but in case it's there
+        # we can use it
+        page = self._get_page('article[data-ft*="top_level_post_id"]', 'article')
+        if (len(page) == 0):
+            page = self._get_page('article[data-ft]', 'article')
+        return PageClass(page, self.get_page_info())
+
+    def get_page_info(self):
+        more_page_element = self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
+        return {
+            'user_id':
+                self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True).attrs.get('href').split('owner_id=')[
+                    1].split('&')[0] if more_page_element else None
+        }
 
     def get_raw_page(self) -> RawPage:
         return self.html
@@ -171,6 +188,9 @@ class PageParser:
             value = match.groups()[0]
             return re.sub(r'\\+/', '/', value)
 
+        match = self.cursor_regex_5.search(self.cursor_blob)
+        if match:
+            return match.groups()[0]
         return None
 
     def _parse(self):
@@ -231,6 +251,7 @@ class GroupPageParser(PageParser):
     """Class for parsing a single page of a group"""
 
     cursor_regex_3 = re.compile(r'href[=:]"(\/groups\/[^"]+bac=[^"]+)"')  # for Group requests
+    cursor_regex_3_basic_new = re.compile(r'href[=:]"(\/groups\/[^"]+bacr=[^"]+)"')  # for mbasic Group requests 2023
 
     def get_next_page(self) -> Optional[URL]:
         next_page = super().get_next_page()
@@ -238,12 +259,14 @@ class GroupPageParser(PageParser):
             return next_page
 
         assert self.cursor_blob is not None
-
+        logger.debug("using extra page processor")
         match = self.cursor_regex_3.search(self.cursor_blob)
         if match:
             value = match.groups()[0]
             return value.encode('utf-8').decode('unicode_escape').replace('\\/', '/')
-
+        else:
+            match = self.cursor_regex_3_basic_new.search(self.cursor_blob)
+            return match.groups()[0].encode('utf-8').decode('unicode_escape').replace('\\/', '/') if match else None
         return None
 
     def _parse(self):
