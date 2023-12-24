@@ -151,7 +151,8 @@ class PageParser:
         # we can use it
         page = self._get_page('article[data-ft*="top_level_post_id"]', 'article')
         if (len(page) == 0):
-            page = self._get_page('div[role="article"][data-ft]', 'article')
+            # TODO remove the backward compatible article selector
+            page = self._get_page('article[data-ft], div[role="article"][data-ft]', 'article')
         return PageClass(page, self.get_page_info())
 
     def get_page_info(self):
