@@ -40,12 +40,21 @@ facebook-scraper @ git+https://github.com/moda20/facebook-scraper.git@master
 
 ## Usage
 
-Send the unique **page name, profile name, or ID** as the first parameter and specify the base_url and start_url to use the mbasic page instead, and you're good to go:
+in order to get everything running right, follow these steps
 
+1. Send the unique **page name, profile name, or ID** as the first parameter 
+2. Specify the base_url and start_url to use the mbasic page instead
+3. Get the mbasicHeaders that you want to use and read them from a file in order to inject them into the scraper.
+**you can get these headers from opening an example page and selecting a high-end device in the developer tools (such as samsung s20 ultra)
+. This will help with getting newer versions of posts and higher fidelity images.**
 ```python
->>> from facebook_scraper import get_posts
+from facebook_scraper import get_posts, _scraper
+import json
 
->>> for post in get_posts('NintendoAmerica', base_url="https://mbasic.facebook.com", start_url="https://mbasic.facebook.com/NintendoAmerica?v=timeline", pages=1):
+with open('./mbasicHeaders.json', 'r') as file:
+    _scraper.mbasic_headers = json.load(file)
+
+for post in get_posts('NintendoAmerica', base_url="https://mbasic.facebook.com", start_url="https://mbasic.facebook.com/NintendoAmerica?v=timeline", pages=1):
 ...     print(post['text'][:50])
 ...
 The final step on the road to the Super Smash Bros
