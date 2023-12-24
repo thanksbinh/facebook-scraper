@@ -14,13 +14,11 @@ from . import utils, exceptions
 from .constants import FB_BASE_URL, FB_MOBILE_BASE_URL, FB_W3_BASE_URL, FB_MBASIC_BASE_URL
 from .fb_types import Options, Post, RawPost, RequestFunction, Response, URL
 
-
 try:
     from youtube_dl import YoutubeDL
     from youtube_dl.utils import ExtractorError
 except ImportError:
     YoutubeDL = None
-
 
 logger = logging.getLogger(__name__)
 
@@ -292,8 +290,6 @@ class PostExtractor:
         # on the single post page of mbasic .story_body_container doesn't seem to exist which means no text will be extracted
         if len(story_containers) == 0:
             story_containers = [element.find("[data-ft]", first=True)]
-
-
 
         has_more = self.more_url_regex.search(element.html)
         if has_more and self.full_post_html:
@@ -587,7 +583,7 @@ class PostExtractor:
             or 0,
         }
 
-    def extract_photo_link_HQ(self, html: str) -> URL:
+    def extract_photo_link_HQ(self, html: str, useMbasic=False, mbasicUrl=None) -> URL:
         # Find a link that says "View Full Size"
         match = self.image_regex.search(html)
         if match:
@@ -608,7 +604,21 @@ class PostExtractor:
                     logger.error(e)
             return url
         else:
-            return None
+            if useMbasic:
+                logger.debug(f"using mbasic to get HQ image")
+                logger.debug(f"fetching mbasicURl {mbasicUrl}")
+                try:
+                    redirect_response = self.request(mbasicUrl)
+                    url = (
+                        redirect_response.html.find("#objects_container img[src][width][height].img", first=True)
+                        .attrs.get("src")
+                        .replace("&amp;", "&")
+                    )
+                    return url
+                except Exception as e:
+                    logger.error(e)
+            else:
+                return None
 
     def extract_photo_link(self) -> PartialPost:
         if not self.options.get("allow_extra_requests", True) or not self.options.get(
@@ -639,6 +649,7 @@ class PostExtractor:
         # This gets up to 4 images in gallery
         for link in photo_links:
             url = link.attrs["href"]
+            # this is an old version of fb using photoset tokens
             if "photoset_token" in url:
                 query = parse_qs(urlparse(url).query)
                 profile_id = query["profileid"][0]
@@ -680,7 +691,10 @@ class PostExtractor:
             logger.debug(f"Fetching {url}")
             try:
                 response = self.request(url)
-                images.append(self.extract_photo_link_HQ(response.text))
+                mbasicUrl = url = url.replace(FB_MOBILE_BASE_URL, FB_MBASIC_BASE_URL)
+                hqImage = self.extract_photo_link_HQ(response.text, useMbasic=True, mbasicUrl=mbasicUrl)
+                logger.info(f"hq image found {hqImage}")
+                images.append(hqImage)
                 elem = response.html.find(".img[data-sigil='photo-image']", first=True)
                 descriptions.append(elem.attrs.get("alt") or elem.attrs.get("aria-label"))
                 image_ids.append(re.search(r'[=/](\d+)', url).group(1))
@@ -1201,7 +1215,7 @@ class PostExtractor:
             # Some users have to use an AJAX POST method to get replies.
             # Check if this is the case by checking for the element that holds the encrypted response token
             use_ajax_post = (
-                self.full_post_html.find("input[name='fb_dtsg']", first=True) is not None
+                    self.full_post_html.find("input[name='fb_dtsg']", first=True) is not None
             )
 
             if use_ajax_post:
@@ -1334,8 +1348,8 @@ class PostExtractor:
                 )
             else:
                 more_url = (
-                    more.attrs.get("href")
-                    + "&m_entstream_source=video_home&player_suborigin=entry_point&player_format=permalink"
+                        more.attrs.get("href")
+                        + "&m_entstream_source=video_home&player_suborigin=entry_point&player_format=permalink"
                 )
         if self.options.get("comment_start_url"):
             more_url = self.options.get("comment_start_url")
@@ -1379,8 +1393,8 @@ class PostExtractor:
                     )
                 else:
                     more_url = (
-                        more.attrs.get("href")
-                        + "&m_entstream_source=video_home&player_suborigin=entry_point&player_format=permalink"
+                            more.attrs.get("href")
+                            + "&m_entstream_source=video_home&player_suborigin=entry_point&player_format=permalink"
                     )
             else:
                 more_url = None

@@ -67,6 +67,7 @@ class FacebookScraper:
         self.session = session
         self.requests_kwargs = requests_kwargs
         self.request_count = 0
+        self.mbasic_headers = None
 
     def set_user_agent(self, user_agent):
         self.session.headers["User-Agent"] = user_agent
@@ -876,7 +877,13 @@ class FacebookScraper:
                 kwargs.pop("post")
                 response = self.session.post(url=url, **kwargs)
             else:
+                if url.startswith(FB_MBASIC_BASE_URL) and self.mbasic_headers is not None:
+                    self.session.headers.clear()
+                    self.session.headers.update(self.mbasic_headers)
                 response = self.session.get(url=url, **self.requests_kwargs, **kwargs)
+                if url.startswith(FB_MBASIC_BASE_URL) and self.mbasic_headers is not None:
+                    self.session.headers.clear()
+                    self.session.headers.update(self.default_headers)
             DEBUG = False
             if DEBUG:
                 for filename in os.listdir("."):
