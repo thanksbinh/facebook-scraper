@@ -333,6 +333,11 @@ for i in range(1, 101):
 
 ```
 
+
+## Funny Graphics 
+
+<iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://star-history.com/embed?secret=Z2hwX0Jienc2bURzajA3ZFhQdVVSTXVzMkFrbm5SaTliejBsNXpQaA==#moda20/facebook-scraper&Date" frameBorder="0"></iframe>
+
 ## To-Do
 
 - Async support
