@@ -327,9 +327,17 @@ class PostExtractor:
 
             for version, content in content_versions:
                 post_text = []
+                # i am not sure what shared text is used for, TODO review the use of this variable
                 shared_text = []
-                nodes = content.find('p, header, span[role=presentation], div[data-ft]')
-
+                nodes = content.find('p, header, span[role=presentation]')
+                is_share = content.find('div[role="article"]', first=True)
+                if is_share is not None:
+                    logger.debug("post is a shared post, will get info from the original")
+                    nodes = is_share.find('p, header, span[role=presentation]')
+                    texts['is_share'] = "true"
+                    # getting shareText
+                    share_element = content.find('div[data-ft]', first=True)
+                    texts['share_text'] = share_element.find('div[data-ft]', first=True).text
                 if version == "hidden_original":
                     if container_index == 0:
                         post_text.append(content.text)
