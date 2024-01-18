@@ -82,6 +82,7 @@ def generic_iter_pages(
         # Execute callback of starting a new URL request
         if request_url_callback:
             exit_code = request_url_callback(next_url)
+            print("Exit_code", exit_code)
             if exit_code:
                 logger.debug("Exit code %s received from callback, exiting", exit_code)
                 break
