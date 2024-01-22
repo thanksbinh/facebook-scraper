@@ -60,7 +60,6 @@ class FacebookScraper:
         if session is None:
             session = HTMLSession()
             session.headers.update(self.default_headers)
-            session.timeout = 120
 
         if requests_kwargs is None:
             requests_kwargs = {}
