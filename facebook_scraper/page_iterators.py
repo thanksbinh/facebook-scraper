@@ -81,10 +81,11 @@ def generic_iter_pages(
     while next_url:
         # Execute callback of starting a new URL request
         if request_url_callback:
+            # The callback can return an exit code to stop the iteration
+            # This is useful in the cases where the requests triggers an infinite redirect loop.
             exit_code = request_url_callback(next_url)
-            print("Exit_code", exit_code)
             if exit_code:
-                logger.debug("Exit code %s received from callback, exiting", exit_code)
+                logger.debug("Exit code %s received from request_url_callback, exiting", exit_code)
                 break
 
         RETRY_LIMIT = 6
