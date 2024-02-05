@@ -1130,6 +1130,8 @@ class FacebookScraper:
             logger.debug("Starting to iterate pages")
             for i, page in zip(counter, iter_pages_fn()):
                 logger.debug("Extracting posts from page %s", i)
+                # extra_info is already in the kwargs, so we pop it out
+                kwargs.pop("extra_info", None)
                 for post_element in page:
                     post = extract_post_fn(
                         post_element,
