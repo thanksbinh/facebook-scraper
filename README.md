@@ -12,6 +12,12 @@
 
 Scrape Facebook public pages without an API key. Inspired by [twitter-scraper](https://github.com/kennethreitz/twitter-scraper).
 
+
+## Contributions
+We are moving a bit slowly on updates, so if you want to help please check the [TODO](#to-do) section below
+
+
+
 ## Install
 
 To install the latest release from PyPI (original version):
@@ -339,6 +345,7 @@ for i in range(1, 101):
 [![Star History Chart](https://api.star-history.com/svg?repos=moda20/facebook-scraper&type=Date)](https://star-history.com/#moda20/facebook-scraper&Date)
 ## To-Do
 
+- CLI update to work with the latest script updates (NEEDS HELP)
 - Async support
 - ~~Image galleries~~ (`images` entry)
 - ~~Profiles or post authors~~ (`get_profile()`)
