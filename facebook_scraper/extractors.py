@@ -592,42 +592,44 @@ class PostExtractor:
         }
 
     def extract_photo_link_HQ(self, html: str, useMbasic=False, mbasicUrl=None) -> URL:
-        # Find a link that says "View Full Size"
-        match = self.image_regex.search(html)
-        if match:
-            url = match.groups()[0].replace("&amp;", "&")
-            if not url.startswith("http"):
-                url = utils.urljoin(FB_MOBILE_BASE_URL, url)
-            if url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "/photo/view_full_size/")):
-                # Try resolve redirect
-                logger.debug(f"Fetching {url}")
-                try:
-                    redirect_response = self.request(url)
-                    url = (
-                        redirect_response.html.find("a", first=True)
-                        .attrs.get("href")
-                        .replace("&amp;", "&")
-                    )
-                except Exception as e:
-                    logger.error(e)
-            return url
+        # As of Jan 2024 the mobile headers & mbasic method is the only reliable way of getting HQ images
+        # the m.facebook method is left as a fallback. if you don't get images using useMbasic attribute,
+        # please set it to false
+        if useMbasic:
+            logger.debug(f"using mbasic to get HQ image")
+            logger.debug(f"fetching mbasicURl {mbasicUrl}")
+            try:
+                redirect_response = self.request(mbasicUrl)
+                url = (
+                    redirect_response.html.find("#objects_container img[src][width][height].img", first=True)
+                    .attrs.get("src")
+                    .replace("&amp;", "&")
+                )
+                return url
+            except Exception as e:
+                logger.error(e)
         else:
-            if useMbasic:
-                logger.debug(f"using mbasic to get HQ image")
-                logger.debug(f"fetching mbasicURl {mbasicUrl}")
-                try:
-                    redirect_response = self.request(mbasicUrl)
-                    url = (
-                        redirect_response.html.find("#objects_container img[src][width][height].img", first=True)
-                        .attrs.get("src")
-                        .replace("&amp;", "&")
-                    )
-                    return url
-                except Exception as e:
-                    logger.error(e)
+            # Find a link that says "View Full Size"
+            match = self.image_regex.search(html)
+            if match:
+                url = match.groups()[0].replace("&amp;", "&")
+                if not url.startswith("http"):
+                    url = utils.urljoin(FB_MOBILE_BASE_URL, url)
+                if url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "/photo/view_full_size/")):
+                    # Try resolve redirect
+                    logger.debug(f"Fetching {url}")
+                    try:
+                        redirect_response = self.request(url)
+                        url = (
+                            redirect_response.html.find("a", first=True)
+                            .attrs.get("href")
+                            .replace("&amp;", "&")
+                        )
+                    except Exception as e:
+                        logger.error(e)
+                return url
             else:
                 return None
-
     def extract_photo_link(self) -> PartialPost:
         if not self.options.get("allow_extra_requests", True) or not self.options.get(
             "HQ_images", True

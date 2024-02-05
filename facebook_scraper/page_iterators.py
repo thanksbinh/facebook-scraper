@@ -166,6 +166,8 @@ class PageParser:
 
     def get_page_info(self):
         more_page_element = self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
+        # TODO [Code quality] Refactor the regex search to use globally available
+        message_page_element = self.html.find('a[href^="/messages/thread/"]', first=True)
         return {
             'user_id': self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
             .attrs.get('href')
