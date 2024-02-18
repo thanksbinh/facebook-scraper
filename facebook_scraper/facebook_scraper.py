@@ -114,7 +114,9 @@ class FacebookScraper:
         )
         return self._generic_get_posts(extract_hashtag_post, iter_pages_fn, **kwargs)
 
-    def get_posts_by_url(self, post_urls, options={}, remove_source=True, **kwargs) -> Iterator[Post]:
+    def get_posts_by_url(
+        self, post_urls, options={}, remove_source=True, **kwargs
+    ) -> Iterator[Post]:
         kwargs["scraper"] = self
         if self.session.cookies.get("noscript") == "1":
             options["noscript"] = True
@@ -135,7 +137,7 @@ class FacebookScraper:
             if "/stories/" in url or "/story/" in url:
                 elem = response.html.find("#story_viewer_content", first=True)
             else:
-                #top_level_post_id is not used anymore
+                # top_level_post_id is not used anymore
                 elem = response.html.find('[data-ft]', first=True)
                 if not elem:
                     elem = response.html.find('div.async_like', first=True)
@@ -162,7 +164,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
-                            **kwargs
+                            **kwargs,
                         )
                     )
                 elif url.startswith(utils.urljoin(FB_MBASIC_BASE_URL, "/groups/")):
@@ -172,7 +174,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
-                            **kwargs
+                            **kwargs,
                         )
                     )
                 elif "/stories/" in url or "/story/" in url:
@@ -182,7 +184,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
-                            **kwargs
+                            **kwargs,
                         )
                     )
                 else:
@@ -192,7 +194,7 @@ class FacebookScraper:
                             request_fn=self.get,
                             options=options,
                             full_post_html=response.html,
-                            **kwargs
+                            **kwargs,
                         )
                     )
                 if not post.get("post_url"):
@@ -1032,7 +1034,6 @@ class FacebookScraper:
         max_past_limit=5,
         **kwargs,
     ):
-
         if options is None:
             options = {}
         elif isinstance(options, set):
@@ -1049,7 +1050,6 @@ class FacebookScraper:
 
         # if latest_date is specified, iterate until the date is reached n times in a row (recurrent_past_posts)
         if latest_date is not None:
-
             # Pinned posts repeat themselves over time, so ignore them
             pinned_posts = []
 
@@ -1063,10 +1063,11 @@ class FacebookScraper:
             done = False
 
             for page in iter_pages_fn():
-
                 for post_element in page:
                     try:
-                        post = extract_post_fn(post_element, options=options, request_fn=self.get, **kwargs)
+                        post = extract_post_fn(
+                            post_element, options=options, request_fn=self.get, **kwargs
+                        )
 
                         if remove_source:
                             post.pop("source", None)
@@ -1129,8 +1130,16 @@ class FacebookScraper:
             logger.debug("Starting to iterate pages")
             for i, page in zip(counter, iter_pages_fn()):
                 logger.debug("Extracting posts from page %s", i)
+                # extra_info is already in the kwargs, so we pop it out
+                kwargs.pop("extra_info", None)
                 for post_element in page:
-                    post = extract_post_fn(post_element, options=options, request_fn=self.get, extra_info=page.extra_info, **kwargs)
+                    post = extract_post_fn(
+                        post_element,
+                        options=options,
+                        request_fn=self.get,
+                        extra_info=page.extra_info,
+                        **kwargs,
+                    )
                     if remove_source:
                         post.pop('source', None)
                     yield post

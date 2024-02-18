@@ -32,12 +32,15 @@ def iter_hashtag_pages(hashtag: str, request_fn: RequestFunction, **kwargs) -> I
 def iter_pages(account: str, request_fn: RequestFunction, **kwargs) -> Iterator[Page]:
     start_url = kwargs.pop("start_url", None)
     if not start_url:
-        start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'/{account}', )
+        start_url = utils.urljoin(
+            FB_MOBILE_BASE_URL,
+            f'/{account}',
+        )
     return generic_iter_pages(start_url, PageParser, request_fn, **kwargs)
 
 
 def iter_group_pages(
-        group: Union[str, int], request_fn: RequestFunction, **kwargs
+    group: Union[str, int], request_fn: RequestFunction, **kwargs
 ) -> Iterator[Page]:
     start_url = kwargs.pop("start_url", None)
 
@@ -78,7 +81,12 @@ def generic_iter_pages(
     while next_url:
         # Execute callback of starting a new URL request
         if request_url_callback:
-            request_url_callback(next_url)
+            # The callback can return an exit code to stop the iteration
+            # This is useful in the cases where the requests triggers an infinite redirect loop.
+            exit_code = request_url_callback(next_url)
+            if exit_code:
+                logger.debug("Exit code %s received from request_url_callback, exiting", exit_code)
+                break
 
         RETRY_LIMIT = 6
         for retry in range(1, RETRY_LIMIT + 1):
@@ -138,6 +146,7 @@ class PageParser:
     cursor_regex_5 = re.compile(
         r'href="(/profile/timeline/stream/\?cursor[^"]+)"'
     )  # scroll/cursor based, first request
+
     def __init__(self, response: Response):
         self.response = response
         self.html = None
@@ -160,10 +169,12 @@ class PageParser:
         # TODO [Code quality] Refactor the regex search to use globally available
         message_page_element = self.html.find('a[href^="/messages/thread/"]', first=True)
         return {
-            'user_id':
-                self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True).attrs.get('href').split('owner_id=')[
-                    1].split('&')[0] if more_page_element else None,
-            'page_id': re.search(r'/messages/thread/(\d+)/', message_page_element.attrs.get('href')).group(1) if message_page_element else None
+            'user_id': self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
+            .attrs.get('href')
+            .split('owner_id=')[1]
+            .split('&')[0]
+            if more_page_element
+            else None
         }
 
     def get_raw_page(self) -> RawPage:
@@ -258,7 +269,9 @@ class GroupPageParser(PageParser):
     """Class for parsing a single page of a group"""
 
     cursor_regex_3 = re.compile(r'href[=:]"(\/groups\/[^"]+bac=[^"]+)"')  # for Group requests
-    cursor_regex_3_basic_new = re.compile(r'href[=:]"(\/groups\/[^"]+bacr=[^"]+)"')  # for mbasic Group requests 2023
+    cursor_regex_3_basic_new = re.compile(
+        r'href[=:]"(\/groups\/[^"]+bacr=[^"]+)"'
+    )  # for mbasic Group requests 2023
 
     def get_next_page(self) -> Optional[URL]:
         next_page = super().get_next_page()
@@ -273,7 +286,11 @@ class GroupPageParser(PageParser):
             return value.encode('utf-8').decode('unicode_escape').replace('\\/', '/')
         else:
             match = self.cursor_regex_3_basic_new.search(self.cursor_blob)
-            return match.groups()[0].encode('utf-8').decode('unicode_escape').replace('\\/', '/') if match else None
+            return (
+                match.groups()[0].encode('utf-8').decode('unicode_escape').replace('\\/', '/')
+                if match
+                else None
+            )
         return None
 
     def _parse(self):
