@@ -955,6 +955,7 @@ class FacebookScraper:
                     title.text == "Log in to Facebook | Facebook"
                     or response.url.startswith(utils.urljoin(FB_MOBILE_BASE_URL, "login"))
                     or response.url.startswith(utils.urljoin(FB_W3_BASE_URL, "login"))
+                    or response.url.startswith(utils.urljoin(FB_MBASIC_BASE_URL, "login"))
                 ):
                     raise exceptions.LoginRequired(
                         "A login (cookies) is required to see this page"
