@@ -591,7 +591,7 @@ class PostExtractor:
             or 0,
         }
 
-    def extract_photo_link_HQ(self, html: str, useMbasic=False, mbasicUrl=None) -> URL:
+    def extract_photo_link_HQ(self, response, useMbasic=False, mbasicUrl=None) -> URL:
         # As of Jan 2024 the mobile headers & mbasic method is the only reliable way of getting HQ images
         # the m.facebook method is left as a fallback. if you don't get images using useMbasic attribute,
         # please set it to false
@@ -599,7 +599,7 @@ class PostExtractor:
             logger.debug(f"using mbasic to get HQ image")
             logger.debug(f"fetching mbasicURl {mbasicUrl}")
             try:
-                redirect_response = self.request(mbasicUrl)
+                redirect_response = self.request(mbasicUrl) if mbasicUrl else response
                 url = (
                     redirect_response.html.find("#objects_container img[src][width][height].img", first=True)
                     .attrs.get("src")
@@ -610,7 +610,7 @@ class PostExtractor:
                 logger.error(e)
         else:
             # Find a link that says "View Full Size"
-            match = self.image_regex.search(html)
+            match = self.image_regex.search(response.text)
             if match:
                 url = match.groups()[0].replace("&amp;", "&")
                 if not url.startswith("http"):
@@ -655,7 +655,7 @@ class PostExtractor:
         if len(photo_links) in [4, 5] and photo_links[-1].text:
             total_photos_in_gallery = len(photo_links) + int(photo_links[-1].text.strip("+")) - 1
             logger.debug(f"{total_photos_in_gallery} total photos in gallery")
-
+        response = ''
         # This gets up to 4 images in gallery
         for link in photo_links:
             url = link.attrs["href"]
@@ -698,45 +698,52 @@ class PostExtractor:
                     "videos": videos,
                 }
             url = utils.urljoin(FB_MOBILE_BASE_URL, url)
-            logger.debug(f"Fetching {url}")
             try:
-                response = self.request(url)
+                # i am deprectaing the extra request to m.fb as it uses the number of requests allowed by fb for no use
+                #response = self.request(url)
                 mbasicUrl = url = url.replace(FB_MOBILE_BASE_URL, FB_MBASIC_BASE_URL)
-                hqImage = self.extract_photo_link_HQ(response.text, useMbasic=True, mbasicUrl=mbasicUrl)
+                hqImage = self.extract_photo_link_HQ(None, useMbasic=True, mbasicUrl=mbasicUrl)
                 logger.info(f"hq image found {hqImage}")
                 images.append(hqImage)
-                elem = response.html.find(".img[data-sigil='photo-image']", first=True)
-                descriptions.append(elem.attrs.get("alt") or elem.attrs.get("aria-label"))
+                #elem = response.html.find(".img[data-sigil='photo-image']", first=True)
+                #descriptions.append(elem.attrs.get("alt") or elem.attrs.get("aria-label"))
                 image_ids.append(re.search(r'[=/](\d+)', url).group(1))
             except Exception as e:
                 logger.error(e)
                 total_photos_in_gallery -= 1
 
         errors = 0
-        while len(images) < total_photos_in_gallery:
-            # More photos to fetch. Follow the left arrow link of the last image we were on
-            direction = '{"tn":"+>"}'
-            if response.html.find("a", containing="Photos from", first=True):
-                # Right arrow link
-                direction = '{"tn":"+="}'
-            url = response.html.find(f"a.touchable[data-gt='{direction}']", first=True).attrs[
-                "href"
-            ]
-            if not url.startswith("http"):
-                url = utils.urljoin(FB_MOBILE_BASE_URL, url)
-            logger.debug(f"Fetching {url}")
-            response = self.request(url)
-            photo_link = self.extract_photo_link_HQ(response.text)
-            if photo_link not in images:
-                images.append(photo_link)
-                elem = response.html.find(".img[data-sigil='photo-image']", first=True)
-                descriptions.append(elem.attrs.get("alt") or elem.attrs.get("aria-label"))
-                image_ids.append(re.search(r'[=/](\d+)', url).group(1))
+        logger.debug(f"images length {len(images)}")
+        last_image_url = utils.urljoin(FB_MBASIC_BASE_URL, photo_links.pop().attrs["href"])
+        logger.debug(f"last image url {last_image_url}")
+        last_image_response = self.request(last_image_url)
+        next_image_url = last_image_response.html.find(f'a[href^="/photo"]:contains("Next")', first=True)
+        post_has_more_hidden_images = next_image_url is not None
+        while post_has_more_hidden_images:
+            logger.debug(f'found next image url {next_image_url}')
+            if next_image_url:
+                url = next_image_url.attrs[
+                    "href"
+                ]
+                logger.debug(url)
+                # we can see the next button at the last page
+                if not url.startswith("http"):
+                    url = utils.urljoin(FB_MBASIC_BASE_URL, url)
+                logger.debug(f"Fetching Next image url {url}")
+                response = self.request(url)
+                photo_link = self.extract_photo_link_HQ(response, useMbasic=True)
+                # try to extract the next image_url from the new page
+                next_image_url = response.html.find(f'a[href^="/photo"]:contains("Next")', first=True)
+                if photo_link not in images:
+                    images.append(photo_link)
+                    # elem = response.html.find(".img[data-sigil='photo-image']", first=True)
+                    # descriptions.append(elem.attrs.get("alt") or elem.attrs.get("aria-label"))
+                    image_ids.append(re.search(r'[=/](\d+)', url).group(1))
+                else:
+                    errors += 1
+                    logger.error(f"found a photolink but duplicated {photo_link}")
             else:
-                errors += 1
-                if errors > 5:
-                    logger.error("Reached image error limit")
-                    break
+                post_has_more_hidden_images = False
         image = images[0] if images else None
         image_id = image_ids[0] if image_ids else None
         return {
