@@ -1,5 +1,7 @@
 import itertools
 import json
+import time
+
 import demjson3 as demjson
 from demjson3 import JSONDecodeError
 import logging
@@ -104,6 +106,7 @@ class PostExtractor:
         self._live_data = {}
         self.extra_info = extra_info
         self.scraper = kwargs['scraper']
+        self.image_hop_timeout = self.options.get('image_hop_timeout', None)
 
     # TODO: This is getting ugly, create a dataclass for Post
     def make_new_post(self) -> Post:
@@ -742,6 +745,10 @@ class PostExtractor:
                 else:
                     errors += 1
                     logger.error(f"found a photolink but duplicated {photo_link}")
+                # adding time delay to not hit facebook more than normal
+                if self.image_hop_timeout:
+                    logger.debug(f"will sleep for {self.image_hop_timeout} sec")
+                    time.sleep(self.image_hop_timeout)
             else:
                 post_has_more_hidden_images = False
         image = images[0] if images else None

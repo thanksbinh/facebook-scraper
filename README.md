@@ -88,6 +88,7 @@ Both `comments` and `reactors` can also be set to a number to set a limit for th
 Set `options={"progress": True}` to get a `tqdm` progress bar while extracting comments and replies.
 Set `options={"allow_extra_requests": False}` to disable making extra requests when extracting post data (required for some things like full text and image links).
 Set `options={"posts_per_page": 200}` to request 200 posts per page. The default is 4.
+Set `options={"image_hop_timeout": 2}` to delay the image cycling by n seconds, this is useful to prevent pinging fb a lot.
 
 ## CLI usage
 
