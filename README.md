@@ -71,24 +71,52 @@ We’re headed to PAX East 3/28-3/31 with new games
 
 *(For the `get_posts` function)*.
 
-- **group**: group id, to scrape groups instead of pages. Default is `None`.
-- **pages**: how many pages of posts to request, the first 2 pages may have no results, so try with a number greater than 2. Default is 10.
-- **timeout**: how many seconds to wait before timing out. Default is 30.
-- **credentials**: tuple of user and password to login before requesting the posts. Default is `None`.
-- **extra_info**: bool, if true the function will try to do an extra request to get the post reactions. Default is False.
-- **youtube_dl**: bool, use Youtube-DL for (high-quality) video extraction. You need to have youtube-dl installed on your environment. Default is False.
-- **post_urls**: list, URLs or post IDs to extract posts from. Alternative to fetching based on username.
-- **cookies**: One of:
+* **group**: group id, to scrape groups instead of pages. Default is `None`.
+* **pages**: how many pages of posts to request, the first 2 pages may have no results, so try with a number greater than 2. Default is 10.
+* **timeout**: how many seconds to wait before timing out. Default is 30.
+* **credentials**: tuple of user and password to login before requesting the posts. Default is `None`.
+* **extra_info**: bool, if true the function will try to do an extra request to get the post reactions. Default is False.
+* **youtube_dl**: bool, use Youtube-DL for (high-quality) video extraction. You need to have youtube-dl installed on your environment. Default is False.
+* **post_urls**: list, URLs or post IDs to extract posts from. Alternative to fetching based on username.
+* **cookies**: One of:
   - The path to a file containing cookies in Netscape or JSON format. You can extract cookies from your browser after logging into Facebook with an extension like [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) or [Cookie Quick Manager (Firefox)](https://addons.mozilla.org/en-US/firefox/addon/cookie-quick-manager/). Make sure that you include both the c_user cookie and the xs cookie, you will get an InvalidCookies exception if you don't.
   - A [CookieJar](https://docs.python.org/3.9/library/http.cookiejar.html#http.cookiejar.CookieJar)
   - A dictionary that can be converted to a CookieJar with [cookiejar_from_dict](https://2.python-requests.org/en/master/api/#requests.cookies.cookiejar_from_dict)
   - The string `"from_browser"` to try extract Facebook cookies from your browser
-- **options**: Dictionary of options. Set `options={"comments": True}` to extract comments, set `options={"reactors": True}` to extract the people reacting to the post.
-Both `comments` and `reactors` can also be set to a number to set a limit for the amount of comments/reactors to retrieve.
-Set `options={"progress": True}` to get a `tqdm` progress bar while extracting comments and replies.
-Set `options={"allow_extra_requests": False}` to disable making extra requests when extracting post data (required for some things like full text and image links).
-Set `options={"posts_per_page": 200}` to request 200 posts per page. The default is 4.
-Set `options={"image_hop_timeout": 2}` to delay the image cycling by n seconds, this is useful to prevent pinging fb a lot.
+* **options**: Dictionary of options. Set `options={"comments": True}` to extract comments, set `options={"reactors": True}` to extract the people reacting to the post.
+  * Both `comments` and `reactors` can also be set to a number to set a limit for the amount of comments/reactors to retrieve.
+  * Set `options={"progress": True}` to get a `tqdm` progress bar while extracting comments and replies.
+  * Set `options={"allow_extra_requests": False}` to disable making extra requests when extracting post data (required for some things like full text and image links).
+  * Set `options={"posts_per_page": 200}` to request 200 posts per page. The default is 4.
+  * Set `options={"image_hop_timeout": 2}` to delay the image cycling by n seconds, this is useful to prevent pinging fb a lot.
+  * Set `options={"whitelist_methods": [<the method list you want to use for extraction>]}` to extract only specific sections of a post, this is useful to not use up your requests when you don't need to. Here is the list of methods you can use
+
+| method name               | description                                                               |
+|---------------------------|---------------------------------------------------------------------------|
+| extract_post_url          | will try to extract the unique post url                                   |
+| extract_post_id           | will try to extract the unique post_id                                    |
+| extract_text              | will try to extract the post's text and full text if needed               |
+| extract_time              | will try to extract the post's publishing timestamp                       |
+| extract_photo_link        | will try to extract the post's photos, including HQ photos                |
+| extract_image_lq*         | will try to extract low quality images for posts                          |
+| extract_comments          | will try to extract comments of a post, if enabled in options             |
+| extract_shares            | will try to extract shares of a post, if enabled in options               |
+| extract_links             | will try to extract links of a post                                       |
+| extract_user_id           | will try to extract the posting user's id, can be different than page_id  |
+| extract_username          | will try to extract the poster's username                                 |
+| extract_video             | will try to extract the video link of a post                              |
+| extract_video_thumbnail   | will try to extract the video thumbnail of a post                         |
+| extract_video_id          | will try to extract the video's id from a post                            |
+| extract_video_meta        | will try to extract the metadata of a video from a psot                   |
+| extract_is_live           | will try to extract whether a post's video was live or not                |
+| extract_factcheck         | will try to extract whether a post is fact checked or not                 |
+| extract_share_information | will try to extract sharing info (count) from a post                      |
+| extract_availability      | will try to extract whether a post is available or not (in case fo a 404) |
+| extract_listing           | will try to extract a marketplace listing if found                        |
+| extract_with              | will try to extract tagged accounts in a post ("user is with xxxxx")      |
+
+
+
 
 ## CLI usage
 

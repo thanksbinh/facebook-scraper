@@ -94,7 +94,7 @@ class PostExtractor:
     post_story_regex = re.compile(r'href="(\/story[^"]+)" aria')
 
     # selectors
-    post_more_button_selector = 'a:contains("More")[href^="/story.php"]'
+    post_more_button_selector = 'a[href^="/story.php"]'
 
     def __init__(self, element, options, request_fn, full_post_html=None, extra_info=None, **kwargs):
         self.element = element
@@ -107,6 +107,7 @@ class PostExtractor:
         self.extra_info = extra_info
         self.scraper = kwargs['scraper']
         self.image_hop_timeout = self.options.get('image_hop_timeout', None)
+        self.whitelist_methods = self.options.get('whitelist_methods', None)
 
     # TODO: This is getting ugly, create a dataclass for Post
     def make_new_post(self) -> Post:
@@ -189,6 +190,9 @@ class PostExtractor:
             self.extract_listing,
             self.extract_with,
         ]
+
+        if self.whitelist_methods:
+            methods = [method for method in methods if method.__name__ in self.whitelist_methods]
 
         post = self.make_new_post()
         post['source'] = self.element
@@ -386,7 +390,7 @@ class PostExtractor:
                         texts['full_post_url'] = utils.urljoin(FB_MBASIC_BASE_URL, more_button[0].attrs.get('href'))
                         logger.debug(f"getting the text from the full page post : {texts['full_post_url']}")
                         post_urls = [texts['full_post_url']]
-                        post = next(self.scraper.get_posts_by_url(post_urls=post_urls))
+                        post = next(self.scraper.get_posts_by_url(post_urls=post_urls, options={'whitelist_methods': ['extract_text']}))
                         logger.debug(f"got the text from the full page post")
                         texts['full_text'] = post['text']
 
@@ -720,7 +724,8 @@ class PostExtractor:
         last_image_url = utils.urljoin(FB_MBASIC_BASE_URL, photo_links.pop().attrs["href"])
         logger.debug(f"last image url {last_image_url}")
         last_image_response = self.request(last_image_url)
-        next_image_url = last_image_response.html.find(f'a[href^="/photo"]:contains("Next")', first=True)
+        next_image_url = last_image_response.html.find(f'a[href^="/photo"]')
+        next_image_url = next_image_url[1] if len(next_image_url) > 1 else None
         post_has_more_hidden_images = next_image_url is not None
         while post_has_more_hidden_images:
             logger.debug(f'found next image url {next_image_url}')
@@ -736,7 +741,9 @@ class PostExtractor:
                 response = self.request(url)
                 photo_link = self.extract_photo_link_HQ(response, useMbasic=True)
                 # try to extract the next image_url from the new page
-                next_image_url = response.html.find(f'a[href^="/photo"]:contains("Next")', first=True)
+                next_image_url = response.html.find(f'a[href^="/photo"]')
+                next_image_url = (next_image_url[1] if len(next_image_url) > 1 else None) \
+                    if next_image_url is not None else None
                 if photo_link not in images:
                     images.append(photo_link)
                     # elem = response.html.find(".img[data-sigil='photo-image']", first=True)
