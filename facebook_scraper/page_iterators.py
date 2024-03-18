@@ -168,13 +168,15 @@ class PageParser:
         more_page_element = self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
         # TODO [Code quality] Refactor the regex search to use globally available
         message_page_element = self.html.find('a[href^="/messages/thread/"]', first=True)
+        page_id_match = re.search(r'/messages/thread/(\d+)/', message_page_element.attrs.get('href')) if message_page_element else None
         return {
             'user_id': self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
             .attrs.get('href')
             .split('owner_id=')[1]
             .split('&')[0]
             if more_page_element
-            else None
+            else None,
+            'page_id': page_id_match.group(1) if page_id_match else None
         }
 
     def get_raw_page(self) -> RawPage:
