@@ -89,6 +89,7 @@ We’re headed to PAX East 3/28-3/31 with new games
   * Set `options={"allow_extra_requests": False}` to disable making extra requests when extracting post data (required for some things like full text and image links).
   * Set `options={"posts_per_page": 200}` to request 200 posts per page. The default is 4.
   * Set `options={"image_hop_timeout": 2}` to delay the image cycling by n seconds, this is useful to prevent pinging fb a lot.
+  * Set `options={"HQ_images_max_count": 2}` to limit the max count of returned images.
   * Set `options={"whitelist_methods": [<the method list you want to use for extraction>]}` to extract only specific sections of a post, this is useful to not use up your requests when you don't need to. Here is the list of methods you can use
 
 | method name               | description                                                               |

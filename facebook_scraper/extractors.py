@@ -663,8 +663,9 @@ class PostExtractor:
             total_photos_in_gallery = len(photo_links) + int(photo_links[-1].text.strip("+")) - 1
             logger.debug(f"{total_photos_in_gallery} total photos in gallery")
         response = ''
+        hq_image_max_count = self.options.get("HQ_images_max_count", None)
         # This gets up to 4 images in gallery
-        for link in photo_links:
+        for link in (photo_links[:hq_image_max_count] if hq_image_max_count else photo_links):
             url = link.attrs["href"]
             # this is an old version of fb using photoset tokens
             if "photoset_token" in url:
@@ -706,8 +707,6 @@ class PostExtractor:
                 }
             url = utils.urljoin(FB_MOBILE_BASE_URL, url)
             try:
-                # i am deprectaing the extra request to m.fb as it uses the number of requests allowed by fb for no use
-                #response = self.request(url)
                 mbasicUrl = url = url.replace(FB_MOBILE_BASE_URL, FB_MBASIC_BASE_URL)
                 hqImage = self.extract_photo_link_HQ(None, useMbasic=True, mbasicUrl=mbasicUrl)
                 logger.info(f"hq image found {hqImage}")
@@ -727,9 +726,10 @@ class PostExtractor:
         next_image_url = last_image_response.html.find(f'a[href^="/photo"]')
         next_image_url = next_image_url[1] if len(next_image_url) > 1 else None
         post_has_more_hidden_images = next_image_url is not None
+
         while post_has_more_hidden_images:
             logger.debug(f'found next image url {next_image_url}')
-            if next_image_url:
+            if next_image_url and ((len(images) < hq_image_max_count) if hq_image_max_count is not None else True):
                 url = next_image_url.attrs[
                     "href"
                 ]
