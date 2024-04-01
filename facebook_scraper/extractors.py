@@ -742,8 +742,17 @@ class PostExtractor:
                 photo_link = self.extract_photo_link_HQ(response, useMbasic=True)
                 # try to extract the next image_url from the new page
                 next_image_url = response.html.find(f'a[href^="/photo"]')
-                next_image_url = (next_image_url[1] if len(next_image_url) > 1 else None) \
-                    if next_image_url is not None else None
+
+                # Try to find out if we have more photos in the same post (to prevent going through the whole page album)
+                is_part_of_a_post = response.html.find(f'.attachment a[href^="/story.php"]', first=True)
+                if is_part_of_a_post:
+                    logger.debug("Photo is part of a post")
+                    next_image_url = (next_image_url[1] if len(next_image_url) > 1 else None) \
+                        if next_image_url is not None else None
+                else:
+                    logger.debug("Photo is NOT part of a post")
+                    next_image_url = None
+
                 if photo_link not in images:
                     images.append(photo_link)
                     # elem = response.html.find(".img[data-sigil='photo-image']", first=True)
