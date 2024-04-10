@@ -392,7 +392,7 @@ class PostExtractor:
                         post_urls = [texts['full_post_url']]
                         post = next(self.scraper.get_posts_by_url(post_urls=post_urls, options={'whitelist_methods': ['extract_text']}))
                         logger.debug(f"got the text from the full page post")
-                        texts['full_text'] = post['text']
+                        texts['full_text'] = post.get('text')
 
                 text = paragraph_separator.join(itertools.chain(post_text, shared_text))
                 post_text = paragraph_separator.join(post_text)
