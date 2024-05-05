@@ -947,8 +947,9 @@ class PostExtractor:
         w3_fb_url = url and utils.urlparse(url)._replace(netloc='www.facebook.com').geturl()
 
         reactors_opt = self.options.get("reactors")
+        reactions_opt = self.options.get("reactions")
         reactors = []
-        if reactors_opt:
+        if reactors_opt or reactions_opt:
             reaction_url = f'https://m.facebook.com/ufi/reaction/profile/browser/?ft_ent_identifier={post_id}'
             logger.debug(f"Fetching {reaction_url}")
             response = self.request(reaction_url)
@@ -972,7 +973,8 @@ class PostExtractor:
                         reactions[name] = v
                 if not reaction_count:
                     reaction_count = sum(reactions.values())
-            reactors = self.extract_reactors(response, reaction_lookup)
+            if reactors_opt:
+                reactors = self.extract_reactors(response, reaction_lookup)
 
         if reactions:
             return {

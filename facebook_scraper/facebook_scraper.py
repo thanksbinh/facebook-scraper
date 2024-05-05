@@ -98,7 +98,7 @@ class FacebookScraper:
         )
         logger.debug(f"Fetching {reaction_url}")
         response = self.get(reaction_url)
-        extractor = PostExtractor(response.html, kwargs, self.get, full_post_html=response.html)
+        extractor = PostExtractor(response.html, kwargs, self.get, full_post_html=response.html, scraper=self)
         return extractor.extract_reactors(response)
 
     def get_photos(self, account: str, **kwargs) -> Iterator[Post]:

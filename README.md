@@ -83,7 +83,10 @@ We’re headed to PAX East 3/28-3/31 with new games
   - A [CookieJar](https://docs.python.org/3.9/library/http.cookiejar.html#http.cookiejar.CookieJar)
   - A dictionary that can be converted to a CookieJar with [cookiejar_from_dict](https://2.python-requests.org/en/master/api/#requests.cookies.cookiejar_from_dict)
   - The string `"from_browser"` to try extract Facebook cookies from your browser
-* **options**: Dictionary of options. Set `options={"comments": True}` to extract comments, set `options={"reactors": True}` to extract the people reacting to the post.
+* **options**: Dictionary of options. 
+  * Set `options={"comments": True}` to extract comments.
+  * Set `options={"reactors": True}` to extract the people reacting to the post. 
+  * Set `options={"reactions": True}` to extract the reactions of the post. Similar to `reactors` but only extracts reactions and not the people who reacted. Makes only one request per post 
   * Both `comments` and `reactors` can also be set to a number to set a limit for the amount of comments/reactors to retrieve.
   * Set `options={"progress": True}` to get a `tqdm` progress bar while extracting comments and replies.
   * Set `options={"allow_extra_requests": False}` to disable making extra requests when extracting post data (required for some things like full text and image links).
