@@ -659,6 +659,13 @@ class FacebookScraper:
             page_basic_info = PageParser(resp).get_page_info()
             result.update(page_basic_info)
 
+            result['url'] = resp.url
+            logger.debug("extracting HQ profile photo")
+            extractor = PostExtractor(resp.html, kwargs, self.get)
+            image_elements = resp.html.find("a[href^='/photo.php']")
+            result["cover_picture"] = extractor.extract_photo_link_HQ(response=None, useMbasic=True, mbasicUrl=utils.urljoin(FB_MBASIC_BASE_URL, image_elements[0].attrs['href']))
+            result["profile_picture"] = extractor.extract_photo_link_HQ(response=None, useMbasic=True, mbasicUrl=utils.urljoin(FB_MBASIC_BASE_URL, image_elements[1].attrs['href']))
+
         except Exception as e:
             logger.error(f"Unable to extract page info: {e}")
         return result

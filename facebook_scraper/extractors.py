@@ -105,7 +105,7 @@ class PostExtractor:
         self._full_post_html = full_post_html
         self._live_data = {}
         self.extra_info = extra_info
-        self.scraper = kwargs['scraper']
+        self.scraper = kwargs.get('scraper')
         self.image_hop_timeout = self.options.get('image_hop_timeout', None)
         self.whitelist_methods = self.options.get('whitelist_methods', None)
 
