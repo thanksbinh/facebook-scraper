@@ -165,10 +165,17 @@ class PageParser:
         return PageClass(page, self.get_page_info())
 
     def get_page_info(self):
-        more_page_element = self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
+        more_page_element = self.html.find('a[href*="/mbasic/more/?owner_id"]', first=True)
         # TODO [Code quality] Refactor the regex search to use globally available
         message_page_element = self.html.find('a[href^="/messages/thread/"]', first=True)
         page_id_match = re.search(r'/messages/thread/(\d+)/', message_page_element.attrs.get('href')) if message_page_element else None
+
+        # type 2 of page_id matching
+        if page_id_match is None:
+            logger.debug("trying type 2 of page_id matching against \"intent://user/\"")
+            message_page_element = self.html.find('a[href^="intent://user/"]', first=True)
+            page_id_match = re.search(r'intent://user/(\d+)/',
+                                      message_page_element.attrs.get('href')) if message_page_element else None
         return {
             'user_id': self.html.find('a[href^="/mbasic/more/?owner_id"]', first=True)
             .attrs.get('href')

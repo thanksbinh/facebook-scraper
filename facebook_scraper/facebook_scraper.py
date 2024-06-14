@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse, unquote
 from datetime import datetime
 import os
 
+from bs4 import BeautifulSoup
 from requests import RequestException
 from requests_html import HTMLSession
 
@@ -36,7 +37,7 @@ from .page_iterators import (
     iter_pages,
     iter_photos,
     iter_search_pages,
-    iter_hashtag_pages,
+    iter_hashtag_pages, PageParser,
 )
 from . import exceptions
 
@@ -627,106 +628,39 @@ class FacebookScraper:
 
     def get_page_info(self, page, **kwargs) -> Profile:
         result = {}
-        desc = None
 
         try:
-            about_url = f'/{page}/about/'
-            logger.debug(f"Requesting page from: {about_url}")
-            resp = self.get(about_url)
-            result["name"] = resp.html.find("title", first=True).text.replace(" - About", "")
-            desc = resp.html.find("meta[name='description']", first=True)
-            result["about"] = resp.html.find(
-                '#pages_msite_body_contents,div.aboutme', first=True
-            ).text
-            cover_photo = resp.html.find("#msite-pages-header-contents i.coverPhoto", first=True)
-            if cover_photo:
-                match = re.search(r"url\('(.+)'\)", cover_photo.attrs["style"])
-                if match:
-                    result["cover_photo"] = utils.decode_css_url(match.groups()[0])
-            profile_photo = resp.html.find("#msite-pages-header-contents img", first=True)
-            if profile_photo:
-                result["profile_photo"] = profile_photo.attrs["src"]
-        except Exception as e:
-            logger.error(e)
-        try:
-            url = f'/{page}/'
-            logger.debug(f"Requesting page from: {url}")
-            resp = self.get(url)
-            result["id"] = re.search(r'pages/transparency/(\d+)', resp.html.html).group(1)
-            result["name"] = resp.html.find("title", first=True).text.replace(" - Home", "")
-            desc = resp.html.find("meta[name='description']", first=True)
-            ld_json = None
-            try:
-                ld_json = resp.html.find("script[type='application/ld+json']", first=True).text
-            except:
-                logger.error("No ld+json element")
-                url = f'/{page}/community'
-                logger.debug(f"Requesting page from: {url}")
-                try:
-                    community_resp = self.get(url)
-                    try:
-                        ld_json = community_resp.html.find(
-                            "script[type='application/ld+json']", first=True
-                        ).text
-                    except:
-                        logger.error("No ld+json element")
-                        likes_and_follows = community_resp.html.find(
-                            "#page_suggestions_on_liking+div", first=True
-                        ).text.split("\n")
-                        result["followers"] = utils.convert_numeric_abbr(likes_and_follows[2])
-                except:
-                    pass
-            if ld_json:
-                meta = demjson.decode(ld_json)
-                result.update(meta["author"])
-                result["type"] = result.pop("@type")
-                for interaction in meta.get("interactionStatistic", []):
-                    if interaction["interactionType"] == "http://schema.org/FollowAction":
-                        result["followers"] = interaction["userInteractionCount"]
-            try:
-                result["about"] = resp.html.find(
-                    '#pages_msite_body_contents>div>div:nth-child(2)', first=True
-                ).text
-            except Exception as e:
-                logger.error(e)
-                result = self.get_profile(page)
-            for elem in resp.html.find("div[data-sigil*='profile-intro-card-log']"):
-                text = elem.text.split("\n")[0]
-                if " Followers" in text:
-                    result["followers"] = utils.convert_numeric_abbr(
-                        text.replace(" Followers", "")
-                    )
-                if text.startswith("Price Range"):
-                    result["Price Range"] = text.split(" · ")[-1]
-                link = elem.find("a[href]", first=True)
-                if link:
-                    link = link.attrs["href"]
-                    if "active_ads" in link:
-                        result["active_ads_link"] = link
-                    if "maps.google.com" in link:
-                        result["map_link"] = parse_qs(urlparse(link).query).get("u")[0]
-                        result["address"] = text
-                    if link.startswith("tel:"):
-                        result["phone"] = link.replace("tel:", "")
-                    if link.startswith("mailto:"):
-                        result["email"] = link.replace("mailto:", "")
-            result["rating"] = resp.html.find("div[data-nt='FB:TEXT4']")[1].text
-        except Exception as e:
-            logger.error(e)
-        if desc:
-            logger.debug(desc.attrs["content"])
-            match = re.search(r'\..+?(\d[\d,.]+).+·', desc.attrs["content"])
-            if match:
-                result["likes"] = utils.parse_int(match.groups()[0])
-            bits = desc.attrs["content"].split("·")
-            if len(bits) == 3:
-                result["people_talking_about_this"] = utils.parse_int(bits[1])
-                result["checkins"] = utils.parse_int(bits[2])
-        if kwargs.get("reviews"):
-            result["reviews"] = self.get_page_reviews(page, **kwargs)
-            if kwargs.get("reviews") != "generator":
-                result["reviews"] = utils.safe_consume(result["reviews"])
+            logger.debug("getting page info using mbasic url")
+            # mbasic info
+            page_url = utils.urljoin(FB_MBASIC_BASE_URL, page)
+            resp = self.get(page_url)
+            container = resp.html.find("div#objects_container", first=True)
+            name_element =  container.find("strong", first=True)
+            result["name"] = name_element.text
+            soupElement = BeautifulSoup(container.html, features='html.parser')
+            ancestorElement = soupElement.select('strong')[0].find_parent('div')
+            if ancestorElement.find_parent('span'):
+                ancestorElement = ancestorElement.find_parent('span').find_parent('div')
+            description_element = ancestorElement.find_next_sibling("div")
+            logger.debug("description_element")
+            logger.debug(description_element)
+            result["description"] = description_element.text
+            result['category'] = soupElement.select('#category span')[1].text
 
+            # getting basic info for a page
+            def has_text(element):
+                 return element.get_text(strip=True) != '' and not len(element.find_all(True)) > 0
+
+            contact_info_elements = soupElement.select("#contact-info")[0].find_all(has_text)
+            basic_info_elements = soupElement.select("#basic-info")[0].find_all(has_text)
+            result['contact_info'] = {contact_info_elements[i].text: contact_info_elements[i + 1].text for i in range(1, len(contact_info_elements), 2)}
+            result['basic_info'] = {basic_info_elements[i].text: basic_info_elements[i + 1].text for i in range(0, len(basic_info_elements), 2)}
+            logger.debug("getting page_id and user_id usong page_info from PageParser")
+            page_basic_info = PageParser(resp).get_page_info()
+            result.update(page_basic_info)
+
+        except Exception as e:
+            logger.error(f"Unable to extract page info: {e}")
         return result
 
     def get_group_info(self, group, **kwargs) -> Profile:
